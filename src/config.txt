@@ -1,0 +1,36 @@
+#### references and Parameters
+
+### tools 
+SAMTOOLS="@INSTALL_DIR@/bin/samtools" 
+BEDTOOLS="@INSTALL_DIR@/bin/bedtools/bin"
+BWA="@INSTALL_DIR@/bin/bwa"
+PICARD="@INSTALL_DIR@/bin/picard"
+PRIMER3="@INSTALL_DIR@/bin/primer3/src/primer3_core"
+FANCYBOX="@INSTALL_DIR@/bin/fancybox"
+RLIB="@INSTALL_DIR@/Rlibs"
+#### executable
+PERL="@PERL@"
+JAVA="@JAVA@"
+R="@R_EXE@"
+
+
+### references
+USER_HUMAN_database="@INSTALL_DIR@/resources/reference.fa"
+HUMAN_database="@INSTALL_DIR@/resources/human.fa"
+HUMAN_database_Index="@INSTALL_DIR@/resources/human"
+VIRUS_database="@INSTALL_DIR@/resources/virus.fa"
+VIRUS_database_Index="@INSTALL_DIR@/resources/virus"
+VIRUS_HUMAN_database="@INSTALL_DIR@/resources/human_virus.fa"
+VIRUS_HUMAN_database_Index="@INSTALL_DIR@/resources/human_virus"
+REF_FLAT="@INSTALL_DIR@/resources/refFlat.txt.gz"
+HUMAN_CYTOBAND="@INSTALL_DIR@/resources/cytoBand.txt.gz"
+
+### 
+THREADS="4"
+##lowering this number will give more HGT events 
+SEQUENCE_COMPLEXITY="0.7"
+DEPTH="5"
+
+### Integration Site parameters
+MINRP="1"
+MINSOFT="5"

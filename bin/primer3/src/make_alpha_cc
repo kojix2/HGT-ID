@@ -1,0 +1,31 @@
+#!/usr/bin/sh
+
+# Make primer3 with the right flags for a DEC alpha running DEC Unix and using
+# the standard-issue compiler.
+
+make LIBOPTS='' CC=/usr/bin/cc primer3_core CC_OPTS='-g3'
+
+# You will get some warnings:
+#
+# make_alpha_cc
+# /usr/bin/cc -c -g3 -O2 -DDPAL_MAX_ALIGN=35 -DMAX_PRIMER_LENGTH=35 primer3_main.c
+# /usr/lib/cmplrs/cc/cfe: Warning: primer3_main.c, line 1967: Incompatible pointer type assignment
+#      dpal(s1, s2, a, &r);
+#  ---------^
+# /usr/lib/cmplrs/cc/cfe: Warning: primer3_main.c, line 1967: Incompatible pointer type assignment
+#      dpal(s1, s2, a, &r);
+#  -------------^
+# /usr/bin/cc -g3 -O2   -c oligotm.c 
+# /usr/bin/cc -c -g3 -O2 -DDPAL_MAX_ALIGN=35 -DMAX_PRIMER_LENGTH=35 -o dpal_primer.o dpal.c
+# /usr/lib/cmplrs/cc/cfe: Warning: dpal.c, line 507: Incompatible pointer type assignment
+#      if (in->debug) print_align(X,Y,P,I,J);
+#  -------------------------------^
+# /usr/lib/cmplrs/cc/cfe: Warning: dpal.c, line 507: Incompatible pointer type assignment
+#      if (in->debug) print_align(X,Y,P,I,J);
+#  ---------------------------------^
+# /usr/bin/cc -c -g3 -O2 -DDPAL_MAX_ALIGN=35 -DMAX_PRIMER_LENGTH=35 -o format_output.o format_output.c
+# /usr/bin/cc -c -g3 -O2 -DDPAL_MAX_ALIGN=35 -DMAX_PRIMER_LENGTH=35 -o boulder_input.o boulder_input.c
+# /usr/lib/cmplrs/cc/cfe: Warning: boulder_input.c, line 381: prototype declaration and non-prototype definition found for parse_int_pair, the type of this parameter is not compatible with the type after applying default argument promotion
+#      char          sep;          
+#  ------------------^
+# /usr/bin/cc -g -o primer3 primer3_main.o oligotm.o dpal_primer.o format_output.o boulder_input.o  -lm
