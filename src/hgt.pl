@@ -58,6 +58,7 @@ if ( defined($OUTPUT) ) {
 }
 else { $OUTPUT = getcwd; }
 chdir($OUTPUT) or die "cannot change: $!\n";
+
 ### creating the directory structure
 my $logs     = $OUTPUT . "/.logs";
 my $autocode = $OUTPUT . "/.scripts";
@@ -84,6 +85,7 @@ my $BWA         = $config_vars->{'BWA'};
 my $PICARD      = $config_vars->{'PICARD'};
 my $FANCYBOX    = $config_vars->{'FANCYBOX'};
 my $RLIB        = $config_vars->{'RLIB'};
+
 ### add tools to the path
 $ENV{'PATH'}
     = $SAMTOOLS . ':'
@@ -91,9 +93,11 @@ $ENV{'PATH'}
     . $BWA . ':'
     . $PICARD . ':'
     . $ENV{'PATH'};
+
 ### get the path to all the scripts
 #`bwa`;
 my $SCRIPT_DIR = $Bin;
+
 ### references
 my $USER_HUMAN_database        = $config_vars->{'USER_HUMAN_database'};
 my $HUMAN_database             = $config_vars->{'HUMAN_database'};
@@ -105,6 +109,7 @@ my $VIRUS_HUMAN_database_Index = $config_vars->{'VIRUS_HUMAN_database_Index'};
 my $REF_FLAT                   = $config_vars->{'REF_FLAT'};
 my $MINRP                      = $config_vars->{'MINRP'};
 my $MINSOFT                    = $config_vars->{'MINSOFT'};
+
 ### parameters
 my $THREADS             = $config_vars->{'THREADS'};
 my $SEQUENCE_COMPLEXITY = $config_vars->{'SEQUENCE_COMPLEXITY'};
@@ -152,14 +157,21 @@ my $chrflag = `samtools view -H $BAMFILE \
         | head -n1 \
         | awk '{if(\$2 ~ /^SN:chr/) {print \"yes\"} else {print \"no\"}}'`;
 chomp $chrflag;
-##############################
-### preprocessing done and calculations completed
-################################################
-print "Step1:\n";
-print
-    "extracting reads from human aligned bam for first pass mapping back to human...\n";
 
-# $command=join ("","samtools view -u -b -f 8 -F 260 ",$BAMFILE," > ",$human_mapping,"/oneEndMapped.bam &");
+###############################################################################
+# STEP1 extracting reads from human aligned bam for first pass mapping back to human
+###############################################################################
+
+print "Step1:\n";
+print "extracting reads from human aligned bam for first pass mapping back to human...\n";
+
+# $command=join (
+#   "",
+#   "samtools view -u -b -f 8 -F 260 ",
+#    $BAMFILE,
+#    " > ",
+#   $human_mapping,"/oneEndMapped.bam &");
+
 ### create a script to extract reads
 open FH, ">$autocode/extract.h.sh" or die "can't open the script to write\n";
 print FH "samtools view -u -b -f 8 -F 260 $BAMFILE \
@@ -168,6 +180,7 @@ print FH "pid=\$!\n";
 print FH "samtools view -u -b -f 4 -F 264 $BAMFILE \
         > $human_mapping/oneEndUnMapped.bam \&\n";
 print FH "pid1=\$!\n";
+
 ### both reads are unmapped
 print FH "samtools view -u -b -f 12 $BAMFILE \
         > $scoring/UnMapped.bam \&\n";
@@ -186,6 +199,7 @@ print FH "samtools view -F 8 -f 2 -F 4 -f 64 $BAMFILE \
                      foreach my \$softclip (\@{\$hash->{S}}) {if(\$softclip >= \$len){ print }}' \
         > $human_mapping/read1 \&\n";
 print FH "pid2=\$!\n";
+
 print FH "samtools view -F 8 -f 2 -F 4 -f 128 $BAMFILE \
         | awk '\$6 ~ /S/' \
         | awk '\$6 !~ /I/ ' \
@@ -199,12 +213,16 @@ print FH "samtools view -F 8 -f 2 -F 4 -f 128 $BAMFILE \
                      foreach my \$softclip (\@{\$hash->{S}}) {if(\$softclip >= \$len){ print }}' \
         > $human_mapping/read2 \&\n";
 print FH "pid3=\$!\n";
+
 print FH "wait \$pid \$pid1 \$pid2 \$pid3 \$pid4\n";
+
 print FH "##### get all the read IDs\n";
+
 print FH "cat $human_mapping/read1 $human_mapping/read2 \
         | cut -f1 \
         | sort -T \$PWD \
         | uniq > $human_mapping/IDS \n";
+
 print FH "if [ -s $human_mapping/IDS ];\n then
     java -XX:ParallelGCThreads=$THREADS -Xmx6g -Xms3g \
        -jar $PICARD/FilterSamReads.jar \
@@ -214,6 +232,7 @@ print FH "if [ -s $human_mapping/IDS ];\n then
        VALIDATION_STRINGENCY=SILENT \
        SORT_ORDER=queryname \
        > $logs/0.FilterSamReads.log 2>&1;\n fi \n";
+
 print FH "if [ -s $human_mapping/softclip.bam ];\n then
         samtools view $human_mapping/softclip.bam \
             | perl $SCRIPT_DIR/splitReads.pl \
@@ -240,19 +259,23 @@ else {
         $human_mapping, "/oneEndUnMapped.bam " );
 }
 submit($command);
+
 $command = join( "",
     "samtools sort -\@ ",
     $THREADS, " -n ", $human_mapping, "/human.bam ", $human_mapping,
     "/human.sort" );
 submit($command);
+
 $command = join( "",
     "samtools view -h ",
     $human_mapping, "/human.sort.bam | grep -v XF | samtools view -bS - > ",
     $human_mapping, "/tmp.bam" );
 submit($command);
+
 $command = join( "",
     "mv ", $human_mapping, "/tmp.bam ", $human_mapping, "/human.sort.bam" );
 submit($command);
+
 $command = join( "",
     "perl ",
     $SCRIPT_DIR,
@@ -295,10 +318,10 @@ $command = join( "",
     "/1a.bam2fastq.log 2>&1" );
 submit($command);
 
-#########################
-#### completed step1
-############################################################
-#### map it again to human reference genome
+###############################################################################
+# STEP2 map it again to human reference genome
+###############################################################################
+
 print "Step2:\n";
 print "mapping the reads back to human again...\n";
 open FH, ">$autocode/run.h.bwa-mem.sh"
@@ -317,6 +340,7 @@ $command = join( "",
     $autocode, "/run.h.bwa-mem.sh > ",
     $logs,     "/2.bwa-mem.log 2>&1" );
 submit($command);
+
 print "extracting reads from again human aligned bam for viral mapping...\n";
 open FH, ">$autocode/extract.h.again.sh"
     or die "can't open the script to write\n";
@@ -330,21 +354,25 @@ print FH "samtools view -u -b -f 4 -F 264 \
 print FH "pid1=\$!\n";
 print FH "wait \$pid \$pid1\n";
 close FH;
+
 $command = join( "", "chmod 777 ", $autocode, "/extract.h.again.sh" );
 submit($command);
 $command = join( "", "sh ", $autocode, "/extract.h.again.sh" );
 submit($command);
+
 print "merging and sorting the Human BAM file...\n";
 $command = join( "",
     "samtools merge -u -n ", $human_mapping_again, "/2_human.bam ",
     $human_mapping_again,    "/oneEndMapped.bam ", $human_mapping_again,
     "/oneEndUnMapped.bam" );
 submit($command);
+
 $command = join( "",
     "samtools sort -@ ",
     $THREADS, " -n ", $human_mapping_again, "/2_human.bam ",
     $human_mapping_again, "/human.sort" );
 submit($command);
+
 $command = join(
     "",
     "perl ",
@@ -357,6 +385,7 @@ $command = join(
     "/human.fix.sort.bam"
 );
 submit($command);
+
 print "converting the BAM file to fastq...\n";
 $command = join( "",
     "java -Xmx6g -Xms3g -jar ",
@@ -373,12 +402,15 @@ $command = join( "",
 submit($command);
 ### delete tmp files
 if ( !$debug ) { rmtree("$human_mapping"); }
-#########################
-#### completed step2
-############################################################
+
+###############################################################################
+# STEP3 mapping the reads to viral genome
+###############################################################################
+
 print "Step3:\n";
 print "mapping the reads to viral genome...\n";
 open FH, ">$autocode/run.bwa-mem.sh" or die "can't open the scipt to write\n";
+
 print FH "bwa\n";
 print FH "bwa mem -t $THREADS -M \
     -R \'\@RG\\tID:$SAMPLE\\tSM:$SAMPLE\' \
@@ -387,6 +419,7 @@ print FH "bwa mem -t $THREADS -M \
     | samtools view -u -bS - \
     >  $viral_mapping/virus.bam \&\n";
 print FH "pid=\$!\n";
+
 print FH "bwa mem -t $THREADS -M \
     -R \'\@RG\\tID:$SAMPLE\\tSM:$SAMPLE\' \
     $VIRUS_database_Index $scoring/read1.fq \
@@ -396,11 +429,13 @@ print FH "bwa mem -t $THREADS -M \
 print FH "pid1=\$!\n";
 print FH "wait \$pid \$pid1\n";
 close FH;
+
 $command = join( "", "chmod -Rf 777 ", $autocode, "/run.bwa-mem.sh" );
 submit($command);
 $command = join( "", $autocode, "/run.bwa-mem.sh > ", $logs,
     "/4.bwa-mem.log 2>&1" );
 submit($command);
+
 open FH, ">$autocode/extract.v.sh" or die "can't open the script to write\n";
 print FH "samtools view -u -b -f 8 -F 260 \
     $viral_mapping/virus.bam \
