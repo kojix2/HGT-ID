@@ -123,17 +123,27 @@ my $command = "";
 my $OUTNAME = "";
 if ( !$SAMPLE ) {
     $SAMPLE
-        = `samtools view -H $BAMFILE |awk '{if(\$1~/^\@RG/){for(i;i<=NF;i++){if (\$i ~ /^SM:/){col=i}};sub("SM:","",\$col);print \$col}}' | head -1`;
+        = `samtools view -H $BAMFILE \
+            | awk '{if(\$1~/^\@RG/){for(i;i<=NF;i++){if (\$i ~ /^SM:/){col=i}};sub("SM:","",\$col);print \$col}}' \
+            | head -1`;
     $SAMPLE =~ s/\n//g;
 }
 my $libsize
-    = `samtools view -q 20 -f2 $BAMFILE | awk '\$6 !~ /N/' | awk '\$7 ~ /=/' | cut -f9| awk '\$1<1000' | head -10000|awk '{if (\$1<0){\$1=-\$1}else{\$1=\$1} sum+=\$1;} END {printf(\"\%3.0f\\n",sum/NR)}'`;
+    = `samtools view -q 20 -f2 $BAMFILE \
+        | awk '\$6 !~ /N/' \
+        | awk '\$7 ~ /=/'  \
+        | cut -f9 \
+        | awk '\$1<1000' \
+        | head -10000 \
+        | awk '{if (\$1<0){\$1=-\$1}else{\$1=\$1} sum+=\$1;} END {printf(\"\%3.0f\\n",sum/NR)}'`;
 chomp $libsize;
 if ( $libsize =~ m/^\D/ ) {
     $libsize = 450;
 }
 my $readlength
-    = `samtools view $BAMFILE | head -1 | awk '{print length(\$10)}'`;
+    = `samtools view $BAMFILE \
+        | head -1 \
+        | awk '{print length(\$10)}'`;
 chomp $readlength;
 print "library size is inferred as : $libsize\n";
 if ( $SAMPLE ne "" ) { $OUTNAME = $OUTPUT . "/" . $SAMPLE . ".txt"; }
@@ -141,7 +151,10 @@ else { $OUTNAME = $OUTNAME = $OUTPUT . "/output.txt"; $SAMPLE = "dummy"; }
 print "Writing results to $OUTNAME\n";
 ## to deal with TCGA sample/not mayo samples
 my $chrflag
-    = `samtools view -H $BAMFILE | grep '^\@SQ' | head -n1 | awk '{if(\$2 ~ /^SN:chr/) {print \"yes\"} else {print \"no\"}}'`;
+    = `samtools view -H $BAMFILE \
+        | grep '^\@SQ' \
+        | head -n1 \
+        | awk '{if(\$2 ~ /^SN:chr/) {print \"yes\"} else {print \"no\"}}'`;
 chomp $chrflag;
 ##############################
 ### preprocessing done and calculations completed
@@ -154,29 +167,69 @@ print
 ### create a script to extract reads
 open FH, ">$autocode/extract.h.sh" or die "can't open the script to write\n";
 print FH
-    "samtools view -u -b -f 8 -F 260 $BAMFILE > $human_mapping/oneEndMapped.bam \&\n";
+    "samtools view -u -b -f 8 -F 260 $BAMFILE \
+        > $human_mapping/oneEndMapped.bam \&\n";
 print FH "pid=\$!\n";
 print FH
-    "samtools view -u -b -f 4 -F 264 $BAMFILE > $human_mapping/oneEndUnMapped.bam \&\n";
+    "samtools view -u -b -f 4 -F 264 $BAMFILE \
+        > $human_mapping/oneEndUnMapped.bam \&\n";
 print FH "pid1=\$!\n";
 ### both reads are unmapped
-print FH "samtools view -u -b -f 12 $BAMFILE > $scoring/UnMapped.bam \&\n";
+print FH "samtools view -u -b -f 12 $BAMFILE \
+        > $scoring/UnMapped.bam \&\n";
 print FH "pid4=\$!\n";
 
 print FH
-    "samtools view -F 8 -f 2 -F 4 -f 64 $BAMFILE  | awk '\$6 ~ /S/' | awk '\$6 !~ /I/ ' | awk '\$6 !~ /D/' | awk '\$6 ~ /S/' | perl -ane '\$len=length(\$F[9]);\$len=\$len/2;\@CIGAR = split(/([0-9]+[SMIDNHXP])/, \$F[5]);my \$hash;map { push(\@{\$hash->{\$2}}, \$1) if (/(\\d+)([SMIDNHXP])/) } \@CIGAR; foreach my \$softclip (\@{\$hash->{S}}) {if(\$softclip >= \$len){ print }}' > $human_mapping/read1 \&\n";
+    "samtools view -F 8 -f 2 -F 4 -f 64 $BAMFILE \
+        | awk '\$6 ~ /S/' \
+        | awk '\$6 !~ /I/ ' \
+        | awk '\$6 !~ /D/' \
+        | awk '\$6 ~ /S/' \
+        | perl -ane '\$len=length(\$F[9]); \
+                     \$len=\$len/2; \
+                     \@CIGAR = split(/([0-9]+[SMIDNHXP])/, \$F[5]); \
+                     my \$hash; \
+                     map { push(\@{\$hash->{\$2}}, \$1) if (/(\\d+)([SMIDNHXP])/) } \@CIGAR; \
+                     foreach my \$softclip (\@{\$hash->{S}}) {if(\$softclip >= \$len){ print }}' \
+        > $human_mapping/read1 \&\n";
 print FH "pid2=\$!\n";
 print FH
-    "samtools view -F 8 -f 2 -F 4 -f 128 $BAMFILE  | awk '\$6 ~ /S/' | awk '\$6 !~ /I/ ' | awk '\$6 !~ /D/' | awk '\$6 ~ /S/' | perl -ane '\$len=length(\$F[9]);\$len=\$len/2;\@CIGAR = split(/([0-9]+[SMIDNHXP])/, \$F[5]);my \$hash;map { push(\@{\$hash->{\$2}}, \$1) if (/(\\d+)([SMIDNHXP])/) } \@CIGAR; foreach my \$softclip (\@{\$hash->{S}}) {if(\$softclip >= \$len){ print }}'> $human_mapping/read2 \&\n";
+    "samtools view -F 8 -f 2 -F 4 -f 128 $BAMFILE \
+        | awk '\$6 ~ /S/' \
+        | awk '\$6 !~ /I/ ' \
+        | awk '\$6 !~ /D/' \
+        | awk '\$6 ~ /S/' \
+        | perl -ane '\$len=length(\$F[9]); \
+                     \$len=\$len/2; \
+                     \@CIGAR = split(/([0-9]+[SMIDNHXP])/, \$F[5]); \
+                     my \$hash; \
+                     map { push(\@{\$hash->{\$2}}, \$1) if (/(\\d+)([SMIDNHXP])/) } \@CIGAR; \
+                     foreach my \$softclip (\@{\$hash->{S}}) {if(\$softclip >= \$len){ print }}' \
+        > $human_mapping/read2 \&\n";
 print FH "pid3=\$!\n";
 print FH "wait \$pid \$pid1 \$pid2 \$pid3 \$pid4\n";
 print FH "##### get all the read IDs\n";
 print FH
-    "cat $human_mapping/read1 $human_mapping/read2  | cut -f1 | sort -T \$PWD | uniq > $human_mapping/IDS \n";
+    "cat $human_mapping/read1 $human_mapping/read2 \
+        | cut -f1 \
+        | sort -T \$PWD \
+        | uniq > $human_mapping/IDS \n";
 print FH
-    "if [ -s $human_mapping/IDS ];\n then\n java -XX:ParallelGCThreads=$THREADS -Xmx6g -Xms3g -jar $PICARD/FilterSamReads.jar I=$BAMFILE WRITE_READS_FILES=false RLF=$human_mapping/IDS FILTER=includeReadList O=$human_mapping/softclip.bam VALIDATION_STRINGENCY=SILENT SORT_ORDER=queryname > $logs/0.FilterSamReads.log 2>&1;\n fi \n";
+    "if [ -s $human_mapping/IDS ];\n then
+    java -XX:ParallelGCThreads=$THREADS -Xmx6g -Xms3g \
+       -jar $PICARD/FilterSamReads.jar \
+       I=$BAMFILE WRITE_READS_FILES=false \
+       RLF=$human_mapping/IDS FILTER=includeReadList \
+       O=$human_mapping/softclip.bam \
+       VALIDATION_STRINGENCY=SILENT \
+       SORT_ORDER=queryname \
+       > $logs/0.FilterSamReads.log 2>&1;\n fi \n";
 print FH
-    "if [ -s $human_mapping/softclip.bam ];\n then\n samtools view $human_mapping/softclip.bam | perl $SCRIPT_DIR/splitReads.pl | samtools view -bt $HUMAN_database.fai - >  $human_mapping/soft.bam;\n fi \n";
+    "if [ -s $human_mapping/softclip.bam ];\n then
+        samtools view $human_mapping/softclip.bam \
+            | perl $SCRIPT_DIR/splitReads.pl \
+            | samtools view -bt $HUMAN_database.fai - \
+            >  $human_mapping/soft.bam;\n fi \n";
 close FH;
 $command = join( "", "chmod 777 ", $autocode, "/extract.h.sh" );
 submit($command);
@@ -263,7 +316,12 @@ open FH, ">$autocode/run.h.bwa-mem.sh"
     or die "can't open the scipt to write\n";
 print FH "bwa\n";
 print FH
-    "bwa mem -t $THREADS -M -R \'\@RG\\tID:$SAMPLE\\tSM:$SAMPLE\' $HUMAN_database_Index $human_mapping/read1.fq $human_mapping/read2.fq | samtools view -u -bS - >  $human_mapping_again/human.bam\n";
+    "bwa mem -t $THREADS -M \
+        -R \'\@RG\\tID:$SAMPLE\\tSM:$SAMPLE\' \
+        $HUMAN_database_Index $human_mapping/read1.fq \
+        $human_mapping/read2.fq \
+        | samtools view -u -bS - \
+        >  $human_mapping_again/human.bam\n";
 close FH;
 $command = join( "", "chmod -Rf 777 ", $autocode, "/run.h.bwa-mem.sh" );
 submit($command);
@@ -275,10 +333,14 @@ print "extracting reads from again human aligned bam for viral mapping...\n";
 open FH, ">$autocode/extract.h.again.sh"
     or die "can't open the script to write\n";
 print FH
-    "samtools view -u -b -f 8 -F 260 $human_mapping_again/human.bam > $human_mapping_again/oneEndMapped.bam \&\n";
+    "samtools view -u -b -f 8 -F 260 \
+    $human_mapping_again/human.bam \
+    > $human_mapping_again/oneEndMapped.bam \&\n";
 print FH "pid=\$!\n";
 print FH
-    "samtools view -u -b -f 4 -F 264 $human_mapping_again/human.bam > $human_mapping_again/oneEndUnMapped.bam \&\n";
+    "samtools view -u -b -f 4 -F 264 \
+    $human_mapping_again/human.bam \
+    > $human_mapping_again/oneEndUnMapped.bam \&\n";
 print FH "pid1=\$!\n";
 print FH "wait \$pid \$pid1\n";
 close FH;
@@ -302,7 +364,8 @@ $command = join( "",
     $SCRIPT_DIR,
     "/keepreads.pl ",
     $human_mapping_again,
-    "/human.sort.bam | sed '/^\\s*\$/d' | samtools view -u -bS - > ",
+    "/human.sort.bam | \
+    sed '/^\\s*\$/d' | samtools view -u -bS - > ",
     $human_mapping_again,
     "/human.fix.sort.bam" );
 submit($command);
@@ -330,10 +393,20 @@ print "mapping the reads to viral genome...\n";
 open FH, ">$autocode/run.bwa-mem.sh" or die "can't open the scipt to write\n";
 print FH "bwa\n";
 print FH
-    "bwa mem -t $THREADS -M -R \'\@RG\\tID:$SAMPLE\\tSM:$SAMPLE\' $VIRUS_database_Index $human_mapping_again/read1.fq $human_mapping_again/read2.fq | samtools view -u -bS - >  $viral_mapping/virus.bam \&\n";
+    "bwa mem -t $THREADS -M \
+    -R \'\@RG\\tID:$SAMPLE\\tSM:$SAMPLE\' \
+    $VIRUS_database_Index $human_mapping_again/read1.fq \
+    $human_mapping_again/read2.fq \
+    | samtools view -u -bS - \
+    >  $viral_mapping/virus.bam \&\n";
 print FH "pid=\$!\n";
 print FH
-    "bwa mem -t $THREADS -M -R \'\@RG\\tID:$SAMPLE\\tSM:$SAMPLE\' $VIRUS_database_Index $scoring/read1.fq $scoring/read2.fq | samtools view -u -bS - > $scoring/virus.fromUnmapped.bam \&\n";
+    "bwa mem -t $THREADS -M \
+    -R \'\@RG\\tID:$SAMPLE\\tSM:$SAMPLE\' \
+    $VIRUS_database_Index $scoring/read1.fq \
+    $scoring/read2.fq \
+    | samtools view -u -bS - \
+    > $scoring/virus.fromUnmapped.bam \&\n";
 print FH "pid1=\$!\n";
 print FH "wait \$pid \$pid1\n";
 close FH;
@@ -344,13 +417,19 @@ $command = join( "", $autocode, "/run.bwa-mem.sh > ", $logs,
 submit($command);
 open FH, ">$autocode/extract.v.sh" or die "can't open the script to write\n";
 print FH
-    "samtools view -u -b -f 8 -F 260 $viral_mapping/virus.bam > $viral_mapping/oneEndMapped.bam \&\n";
+    "samtools view -u -b -f 8 -F 260 \
+    $viral_mapping/virus.bam \
+    > $viral_mapping/oneEndMapped.bam \&\n";
 print FH "pid=\$!\n";
 print FH
-    "samtools view -u -b -f 4 -F 264 $viral_mapping/virus.bam > $viral_mapping/oneEndUnMapped.bam \&\n";
+    "samtools view -u -b -f 4 -F 264 \
+    $viral_mapping/virus.bam \
+    > $viral_mapping/oneEndUnMapped.bam \&\n";
 print FH "pid1=\$!\n";
 print FH
-    "samtools sort -@ $THREADS $scoring/virus.fromUnmapped.bam $scoring/virus.fromUnmapped.sort \&\n";
+    "samtools sort -@ $THREADS \
+    $scoring/virus.fromUnmapped.bam \
+    $scoring/virus.fromUnmapped.sort \&\n";
 print FH "pid2=\$!\n";
 print FH "wait \$pid \$pid1 \$pid2\n";
 print FH "samtools index $scoring/virus.fromUnmapped.sort.bam";
@@ -400,8 +479,11 @@ $command = join( "",
     "/5.map.virus.human.log 2>&1" );
 submit($command);
 $command = join( "",
-    "cat ", $OUTPUT, "/VIRUS.HUMAN.sam | sed '/^\$/d' | samtools view -bt ",
-    $VIRUS_HUMAN_database, ".fai - > ", $OUTPUT, "/VIRUS.HUMAN.bam" );
+    "cat ", $OUTPUT, "/VIRUS.HUMAN.sam \
+    | sed '/^\$/d' \
+    | samtools view -bt ",
+    $VIRUS_HUMAN_database, ".fai - \
+    > ", $OUTPUT, "/VIRUS.HUMAN.bam" );
 submit($command);
 $command = join( "",
     "samtools sort -@ ", $THREADS, " ", $OUTPUT,
@@ -428,7 +510,9 @@ $command = join( "",
     $OUTPUT,
     "/HGT.candidates.flt.txt FILTER=includeReadList O=",
     $OUTPUT,
-    "/VIRUS.HUMAN.flt.sort.bam WRITE_READS_FILES=false VALIDATION_STRINGENCY=SILENT CREATE_INDEX=TRUE > ",
+    "/VIRUS.HUMAN.flt.sort.bam \
+    WRITE_READS_FILES=false \
+    VALIDATION_STRINGENCY=SILENT CREATE_INDEX=TRUE > ",
     $logs,
     "/6.FilterSamReads.log 2>&1" );
 submit($command);
@@ -438,7 +522,9 @@ submit($command);
 $command = join( "",
     "samtools idxstats ",
     $OUTPUT,
-    "/VIRUS.HUMAN.flt.sort.bam | awk -v depth=$DEPTH '\$NF+\$(NF-1)>depth' | cut -f1 > ",
+    "/VIRUS.HUMAN.flt.sort.bam \
+    | awk -v depth=$DEPTH '\$NF+\$(NF-1)>depth' \
+    | cut -f1 > ",
     $OUTPUT,
     "/chromosomes2keep.txt" );
 submit($command);
@@ -452,7 +538,10 @@ print
 $command = join( "",
     "bamToBed -i ",
     $OUTPUT,
-    "/VIRUS.HUMAN.flt.sort.bam | sortBed -i stdin | mergeBed -i stdin | slopBed -i stdin -g ",
+    "/VIRUS.HUMAN.flt.sort.bam \
+    | sortBed -i stdin \
+    | mergeBed -i stdin \
+    | slopBed -i stdin -g ",
     $VIRUS_HUMAN_database,
     ".fai -l ",
     $region2Capture,
@@ -463,7 +552,9 @@ $command = join( "",
     "/regions.bed" );
 submit($command);
 my $chrs2keep
-    = `cat $OUTPUT/chromosomes2keep.txt | tr \"\\n\" \"|\" | sed -e 's/\\(\.\*\\)./\\1/'`;
+    = `cat $OUTPUT/chromosomes2keep.txt \
+    | tr \"\\n\" \"|\" \
+    | sed -e 's/\\(\.\*\\)./\\1/'`;
 
 if ( $chrflag eq "yes" ) {
     $command = join( "",
@@ -506,14 +597,29 @@ if ( -z "$OUTPUT/regions.2keep.bed" ) {
 }
 my $whichchr = "";
 my $chr2look
-    = `cat $HUMAN_database.fai | cut -f1 |  tr \"\\n\" \"|\" | sed -e 's/\\(\.\*\\)./\\1/'`;
+    = `cat $HUMAN_database.fai \
+        | cut -f1 \
+        |  tr \"\\n\" \"|\" \
+        | sed -e 's/\\(\.\*\\)./\\1/'`;
 if ( $chrflag == "yes" ) {
     $whichchr
-        = `cat $OUTPUT/regions.2keep.bed  | cut -f1 | sort | uniq | grep -w -E '$chr2look' | tr "\n"  " "| sed \'s/\\s*\$\/\/g\'`;
+        = `cat $OUTPUT/regions.2keep.bed  \
+            | cut -f1 \
+            | sort \
+            | uniq \
+            | grep -w -E '$chr2look' \
+            | tr "\n"  " " \
+            | sed \'s/\\s*\$\/\/g\'`;
 }
 else {
     $whichchr
-        = `cat $OUTPUT/regions.2keep.bed  | awk '{print "chr"\$1}' | sort | uniq | grep -w -E '$chr2look'| tr "\n"  " "| sed \'s/\\s*\$\/\/g\'`;
+        = `cat $OUTPUT/regions.2keep.bed \
+            | awk '{print "chr"\$1}' \
+            | sort \
+            | uniq \
+            | grep -w -E '$chr2look' \
+            | tr "\n"  " " \
+            | sed \'s/\\s*\$\/\/g\'`;
 }
 chomp $whichchr;
 print "go back to original BAM file to extract nearby reads...\n";
@@ -533,7 +639,11 @@ if ( $chrflag eq "no" ) {
     $command = join( "",
         "samtools view -h ",
         $OUTPUT,
-        "/human.org.bam  | sed -e 's/SN:\\([0-9XYG]\\)/SN:chr\\1/' -e 's/SN:MT/SN:chrM/ -e 's/SN:chrM_rCRS/SN:chrM/' | samtools reheader - ",
+        "/human.org.bam \
+        | sed -e 's/SN:\\([0-9XYG]\\)/SN:chr\\1/' \
+              -e 's/SN:MT/SN:chrM/ \
+              -e 's/SN:chrM_rCRS/SN:chrM/' \
+        | samtools reheader - ",
         $OUTPUT,
         "/human.org.bam > ",
         $OUTPUT,
@@ -585,7 +695,9 @@ if ( !$debug ) {
 $command = join( "",
     "zcat ",
     $CYTOBAND,
-    " | grep acen | awk '{if(\$4 ~ /^p/) {print \$1\"\\t\"\$2-50000\"\\t\"\$3} else {print \$1\"\\t\"\$2\"\\t\"\$3+50000}}' | intersectBed -abam ",
+    " | grep acen \
+    | awk '{if(\$4 ~ /^p/) {print \$1\"\\t\"\$2-50000\"\\t\"\$3} else {print \$1\"\\t\"\$2\"\\t\"\$3+50000}}' \
+    | intersectBed -abam ",
     $OUTPUT,
     "/",
     $SAMPLE,
@@ -631,7 +743,9 @@ submit($command);
 $command = join( "",
     "zcat ",
     $CYTOBAND,
-    " | grep acen | awk '{if(\$4 ~ /^p/) {print \$1\"\\t\"\$2-50000\"\\t\"\$3} else {print \$1\"\\t\"\$2\"\\t\"\$3+50000}}' | intersectBed -a ",
+    " | grep acen \
+    | awk '{if(\$4 ~ /^p/) {print \$1\"\\t\"\$2-50000\"\\t\"\$3} else {print \$1\"\\t\"\$2\"\\t\"\$3+50000}}' \
+    | intersectBed -a ",
     $OUTNAME,
     ".bed -b stdin -v -header | cut -f4- > ",
     $OUTNAME );
@@ -643,7 +757,12 @@ print "create a gene bed file to annotate HGT...\n";
 $command = join( "",
     "zcat ",
     $REF_FLAT,
-    " | grep -v random | grep -v chrUn | grep -v hap | awk '{print \$3\"\\t\"\$5\"\\t\"\$6\"\\t\"\$1}' | sortBed -i stdin | perl ",
+    " | grep -v random \
+    | grep -v chrUn \
+    | grep -v hap \
+    | awk '{print \$3\"\\t\"\$5\"\\t\"\$6\"\\t\"\$1}' \
+    | sortBed -i stdin \
+    | perl ",
     $SCRIPT_DIR,
     "/uniqgene.pl > ",
     $OUTPUT,
@@ -652,9 +771,11 @@ submit($command);
 $command = join( "",
     "cat ",
     $OUTNAME,
-    " | awk 'NR>1{print \$1\"\\t\"\$2\"\\t\"\$2}' | closestBed -t first -a stdin -d -b ",
+    " | awk 'NR>1{print \$1\"\\t\"\$2\"\\t\"\$2}' \
+    | closestBed -t first -a stdin -d -b ",
     $OUTPUT,
-    "/gene.bed  | awk '{print \$1\"\\t\"\$2\"\\t\"\$(NF-1)\"\\t\"\$NF}' > ",
+    "/gene.bed  \
+    | awk '{print \$1\"\\t\"\$2\"\\t\"\$(NF-1)\"\\t\"\$NF}' > ",
     $OUTNAME,
     ".gene.txt" );
 submit($command);
@@ -709,13 +830,27 @@ sleep 10;
 if ( $count > 1 ) {
     open FH, ">$autocode/coverage.sh"
         or die "can't open the script to write\n";
-    print FH "for i in `cat $OUTNAME | awk 'NR>1' | cut -f8 | sort | uniq`\n";
+    print FH "for i in `cat $OUTNAME \
+     | awk 'NR>1' \
+     | cut -f8 \
+     | sort \
+     | uniq`\n";
     print FH "do\n";
     print FH
-        "cat $VIRUS_database.fai | grep -w \$i | cut -f1,2 | perl $SCRIPT_DIR/coverage_split.pl | coverageBed -abam $viral_mapping/virus.fix.sort.bam -b stdin > $coverage/\$i.coverage.out \&\n";
+        "cat $VIRUS_database.fai \
+        | grep -w \$i \
+        | cut -f1,2 \
+        | perl $SCRIPT_DIR/coverage_split.pl \
+        | coverageBed -abam $viral_mapping/virus.fix.sort.bam -b stdin \
+        > $coverage/\$i.coverage.out \&\n";
     print FH "pid=\$!\n";
     print FH
-        "cat $VIRUS_database.fai | grep -w \$i | cut -f1,2 | perl $SCRIPT_DIR/coverage_split.pl | coverageBed -abam $scoring/virus.fromUnmapped.sort.bam -b stdin > $coverage/\$i.proper.coverage.out \&\n";
+        "cat $VIRUS_database.fai \
+        | grep -w \$i \
+        | cut -f1,2 \
+        | perl $SCRIPT_DIR/coverage_split.pl \
+        | coverageBed -abam $scoring/virus.fromUnmapped.sort.bam -b stdin \
+        > $coverage/\$i.proper.coverage.out \&\n";
     print FH "pid1=\$!\n";
     print FH "wait \$pid \$pid1\n";
     print FH "done\n";
@@ -746,28 +881,97 @@ submit($command);
 #get the Human Softclipped Reads
 open FH, ">$autocode/scores.sh" or die "can't open the script to write\n";
 print FH
-    "echo \"HumanSoftClipping\" > $scoring/HSoft.txt;\nfor i in `cat $OUTNAME | awk 'NR>1' | cut -f5-7 | awk '{print \$1\":\"\$2-$readlength\"-\"\$3+$readlength}'`;\ndo\nsamtools view -f2 $OUTPUT/$SAMPLE.forcalling.bam \$i | awk '\$6 ~/S/' | awk '\$6 !~ /D/'  | awk '\$6 !~ /I/' | perl -ane 'my \@CIGAR = split(/([0-9]+[SMIDNHXP])/, \$F[5]); my \$hash; map { push(\@{\$hash->{\$2}}, \$1) if (/(\\d+)([SMIDNHXP])/) } \@CIGAR; \$count=0;foreach my \$softclip (\@{\$hash->{S}}) {if(\$softclip >= $MINSOFT){\$count++}}; print \"\$count\\n\"' | awk '\$1>0' | wc -l >> $scoring/HSoft.txt;\ndone\n";
+    "echo \"HumanSoftClipping\" \
+        > $scoring/HSoft.txt;\nfor i in `cat $OUTNAME \ 
+        | awk 'NR>1' \
+        | cut -f5-7  \
+        | awk '{print \$1\":\"\$2-$readlength\"-\"\$3+$readlength}'`;\ndo\nsamtools view -f2 $OUTPUT/$SAMPLE.forcalling.bam \$i \
+        | awk '\$6 ~/S/' \
+        | awk '\$6 !~ /D/'  \
+        | awk '\$6 !~ /I/' \
+        | perl -ane 'my \@CIGAR = split(/([0-9]+[SMIDNHXP])/, \$F[5]); \
+                     my \$hash; \
+                     map { push(\@{\$hash->{\$2}}, \$1) if (/(\\d+)([SMIDNHXP])/) } \@CIGAR; \
+                     \$count=0; \
+                     foreach my \$softclip (\@{\$hash->{S}}) {if(\$softclip >= $MINSOFT){\$count++}}; \
+                     print \"\$count\\n\"' \
+        | awk '\$1>0' \
+        | wc -l >> $scoring/HSoft.txt;\ndone\n";
 print FH
-    "echo \"ViralProperMappedReads\" > $scoring/VProper.txt;\nfor i in `cat $OUTNAME | awk 'NR>1' | cut -f8-10 | awk '{print \$1\":\"\$2\"-\"\$3}'`;\ndo\nsamtools view -f2 $scoring/virus.fromUnmapped.sort.bam \$i | cut -f1 | sort | uniq -c | wc -l >> $scoring/VProper.txt;\ndone\n";
+    "echo \"ViralProperMappedReads\" \
+        > $scoring/VProper.txt;\nfor i in `cat $OUTNAME \
+        | awk 'NR>1' \
+        | cut -f8-10 \
+        | awk '{print \$1\":\"\$2\"-\"\$3}'`;\ndo\nsamtools view -f2 $scoring/virus.fromUnmapped.sort.bam \$i \
+        | cut -f1 \
+        | sort \
+        | uniq -c \
+        | wc -l >> $scoring/VProper.txt;\ndone\n";
 print FH
-    "echo \"ViralSoftClipping\" > $scoring/VSoft.txt;\nfor i in `cat $OUTNAME | awk 'NR>1' | cut -f8-10 | awk '{print \$1\":\"\$2\"-\"\$3}'`;\ndo\nsamtools view -f2 $scoring/virus.fromUnmapped.sort.bam \$i | awk '\$6 ~/S/' | awk '\$6 !~ /D/'  | awk '\$6 !~ /I/' | perl -ane 'my \@CIGAR = split(/([0-9]+[SMIDNHXP])/, \$F[5]); my \$hash; map { push(\@{\$hash->{\$2}}, \$1) if (/(\\d+)([SMIDNHXP])/) } \@CIGAR; \$count=0;foreach my \$softclip (\@{\$hash->{S}}) {if(\$softclip >= $MINSOFT){\$count++}}; print \"\$count\\n\"' | awk '\$1>0' | wc -l >> $scoring/VSoft.txt;\ndone\n";
+    "echo \"ViralSoftClipping\" \
+        > $scoring/VSoft.txt;\nfor i in `cat $OUTNAME \
+        | awk 'NR>1' \
+        | cut -f8-10 \
+        | awk '{print \$1\":\"\$2\"-\"\$3}'`;\ndo\nsamtools view -f2 $scoring/virus.fromUnmapped.sort.bam \$i \
+        | awk '\$6 ~/S/' \
+        | awk '\$6 !~ /D/' \
+        | awk '\$6 !~ /I/' \
+        | perl -ane 'my \@CIGAR = split(/([0-9]+[SMIDNHXP])/, \$F[5]); \
+                     my \$hash; \
+                     map { push(\@{\$hash->{\$2}}, \$1) if (/(\\d+)([SMIDNHXP])/) } \@CIGAR; \
+                     \$count=0; \
+                     foreach my \$softclip (\@{\$hash->{S}}) {if(\$softclip >= $MINSOFT){\$count++}}; \
+                     print \"\$count\\n\"' \
+        | awk '\$1>0' \
+        | wc -l >> $scoring/VSoft.txt;\ndone\n";
 print FH
-    "echo \"HumanProperMappedReads\" > $scoring/HProper.txt;\nfor i in `cat $OUTNAME | awk 'NR>1' | cut -f5-7 | awk '{print \$1\":\"\$2-$readlength\"-\"\$3+$readlength}'`; do samtools view -f2 $OUTPUT/$SAMPLE.forcalling.bam \$i |cut -f1 | sort | uniq -c | wc -l  >> $scoring/HProper.txt;\ndone\n";
+    "echo \"HumanProperMappedReads\" \
+       > $scoring/HProper.txt;\nfor i in `cat $OUTNAME \
+        | awk 'NR>1' \
+        | cut -f5-7 \
+        | awk '{print \$1\":\"\$2-$readlength\"-\"\$3+$readlength}'`; do samtools view -f2 $OUTPUT/$SAMPLE.forcalling.bam \$i \
+        | cut -f1 \
+        | sort \
+        | uniq -c \
+        | wc -l  >> $scoring/HProper.txt;\ndone\n";
 print FH "if [ $chrflag == \"yes\" ]\n";
 print FH "then\n";
 print FH
-    "echo \"TotalCoverage\" > $scoring/TotalCoverageH.txt;\nfor i in `cat $OUTNAME | awk 'NR>1' | cut -f5-7 | awk '{print \$1\":\"\$2-$libsize\"-\"\$3+$libsize}'`; do samtools view $BAMFILE \$i | wc -l >> $scoring/TotalCoverageH.txt;\ndone\n";
+    "echo \"TotalCoverage\" \
+        > $scoring/TotalCoverageH.txt;\nfor i in `cat $OUTNAME \
+        | awk 'NR>1' \
+        | cut -f5-7 \
+        | awk '{print \$1\":\"\$2-$libsize\"-\"\$3+$libsize}'`; do samtools view $BAMFILE \$i \
+        | wc -l >> $scoring/TotalCoverageH.txt;\ndone\n";
 print FH "else\n";
 print FH
-    "echo \"TotalCoverage\" > $scoring/TotalCoverageH.txt;\nfor i in `cat $OUTNAME | awk 'NR>1' | cut -f5-7 | awk '{print \$1\":\"\$2-$libsize\"-\"\$3+$libsize}' | sed -e 's/chr//g'`; do samtools view $BAMFILE \$i | wc -l >> $scoring/TotalCoverageH.txt;\ndone\n";
+    "echo \"TotalCoverage\" \
+        > $scoring/TotalCoverageH.txt;\nfor i in `cat $OUTNAME \
+        | awk 'NR>1' \
+        | cut -f5-7 \
+        | awk '{print \$1\":\"\$2-$libsize\"-\"\$3+$libsize}' \
+        | sed -e 's/chr//g'`; do samtools view $BAMFILE \$i \
+        | wc -l >> $scoring/TotalCoverageH.txt;\ndone\n";
 print FH "fi\n";
 print FH
-    "echo \"TotalCoverageViral\" > $scoring/TotalCoverageV.txt;\nfor i in `cat $OUTNAME | awk 'NR>1' | cut -f8-10 | awk '{print \$1\":\"\$2\"-\"\$3}'`; do samtools view $scoring/virus.fromUnmapped.sort.bam \$i | wc -l >> $scoring/TotalCoverageV.txt;\ndone\n";
+    "echo \"TotalCoverageViral\" \
+        > $scoring/TotalCoverageV.txt;\nfor i in `cat $OUTNAME \
+        | awk 'NR>1' \
+        | cut -f8-10 \
+        | awk '{print \$1\":\"\$2\"-\"\$3}'`; do samtools view $scoring/virus.fromUnmapped.sort.bam \$i \
+        | wc -l >> $scoring/TotalCoverageV.txt;\ndone\n";
 print FH
-    "paste $scoring/TotalCoverageV.txt $scoring/TotalCoverageH.txt | awk 'NR>1' | awk 'BEGIN{print \"Coverage\"} {print \$1+\$2}' > $scoring/TotalCoverage.txt\n";
+    "paste $scoring/TotalCoverageV.txt $scoring/TotalCoverageH.txt \
+        | awk 'NR>1' \
+        | awk 'BEGIN{print \"Coverage\"} {print \$1+\$2}' \
+        > $scoring/TotalCoverage.txt\n";
 
 print FH
-    "cat $OUTNAME  | cut -f1-11 | paste - $scoring/HSoft.txt $scoring/HProper.txt $scoring/VProper.txt $scoring/VSoft.txt $scoring/TotalCoverage.txt  | awk '{if(NR==1){print \$0\"\\tScore\"} else {print \$0\"\\t\"(\$11+\$12+\$15-(((\$13+\$12)\*(\$14+\$15))/\$16))}}' > $OUTNAME.tmp.txt\n";
+    "cat $OUTNAME \
+        | cut -f1-11 \
+        | paste - $scoring/HSoft.txt $scoring/HProper.txt $scoring/VProper.txt $scoring/VSoft.txt $scoring/TotalCoverage.txt \
+        | awk '{if(NR==1){print \$0\"\\tScore\"} else {print \$0\"\\t\"(\$11+\$12+\$15-(((\$13+\$12)\*(\$14+\$15))/\$16))}}' \
+        > $OUTNAME.tmp.txt\n";
 print FH "mv $OUTNAME.tmp.txt $OUTNAME\n";
 $command = join( "", "chmod 777 ", $autocode, "/scores.sh" );
 submit($command);
