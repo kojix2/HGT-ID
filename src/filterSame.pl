@@ -8,24 +8,23 @@ open FA, "$ARGV[1]" or die "";
 
 %contig;
 
-while(my $l = <FA>)	{
-	@a=split(/\t/,$l);
-	$contig{$a[0]}=1;
+while ( my $l = <FA> ) {
+    @a = split( /\t/, $l );
+    $contig{ $a[0] } = 1;
 }
 close FA;
 
-while(my $l = <FH>)	{
-	chomp $l;
-	if ($. == 1)	{print "$l\n";}
-	else	{
-		@a=split(/\t/,$l);
-		if(defined($contig{$a[0]}) && defined($contig{$a[3]}))	{
-		}
-		else	{
-			print "$l\n";
-		}	 	
-	}
+while ( my $l = <FH> ) {
+    chomp $l;
+    if ( $. == 1 ) { print "$l\n"; }
+    else {
+        @a = split( /\t/, $l );
+        if ( defined( $contig{ $a[0] } ) && defined( $contig{ $a[3] } ) ) {
+        }
+        else {
+            print "$l\n";
+        }
+    }
 }
 close FH;
-
 

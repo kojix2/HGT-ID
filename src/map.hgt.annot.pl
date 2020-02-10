@@ -4,31 +4,31 @@
 
 open FH, "$ARGV[0]" or die "";
 %calls;
-while(my $l = <FH>)	{
-	chomp $l;
-	@a=split(/\t/,$l);
-	$id="$a[0]:$a[1]";
-	if ($a[3] == -1)	{	$a[3] = "NA";}
-	if ($a[2] eq "\.")	{	$a[2] = "NA";}
-	$calls{$id}="$a[2]\t$a[3]";
-	
+while ( my $l = <FH> ) {
+    chomp $l;
+    @a  = split( /\t/, $l );
+    $id = "$a[0]:$a[1]";
+    if ( $a[3] == -1 )   { $a[3] = "NA"; }
+    if ( $a[2] eq "\." ) { $a[2] = "NA"; }
+    $calls{$id} = "$a[2]\t$a[3]";
+
 }
 close FH;
 open FH, "$ARGV[1]" or die "";
-$head=<FH>;
+$head = <FH>;
 chomp $head;
 print "GeneName\tDistToGene\t$head\n";
-while(my $l = <FH>)     {
-        chomp $l;
-        @a=split(/\t/,$l);
-	$id="$a[0]:$a[1]";
-	if (defined $calls{$id})	{
-		print "$calls{$id}\t$l\n";
-	}
-	#else	{
-	#	print "NA\tNA\t$l\n";
-	#}
+while ( my $l = <FH> ) {
+    chomp $l;
+    @a  = split( /\t/, $l );
+    $id = "$a[0]:$a[1]";
+    if ( defined $calls{$id} ) {
+        print "$calls{$id}\t$l\n";
+    }
+
+    #else	{
+    #	print "NA\tNA\t$l\n";
+    #}
 }
 close FH;
-		
 
