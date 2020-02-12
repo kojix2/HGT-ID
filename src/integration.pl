@@ -71,7 +71,9 @@ my $OUTNAME     = "";
 #$SAMPLE_NAME=`samtools view -f2 -H $INPUT_BAM|awk '{if(\$1~/^\@RG/){sub("ID:","",\$2);name=\$2;print name}}'|head -1`;
 #$SAMPLE_NAME=~s/\n//g;
 $SAMPLE_NAME
-    = `samtools view -H $INPUT_BAM |awk '{if(\$1~/^\@RG/){for(i;i<=NF;i++){if (\$i ~ /^SM:/){col=i}};sub("SM:","",\$col);print \$col}}' | head -1`;
+    = `samtools view -H $INPUT_BAM  \
+    | awk '{if(\$1~/^\@RG/){for(i;i<=NF;i++){if (\$i ~ /^SM:/){col=i}};sub("SM:","",\$col);print \$col}}' \
+    | head -1`;
 $SAMPLE_NAME =~ s/\n//g;
 if ( !$OUTPUT_FILE ) {
     if   ( $SAMPLE_NAME ne "" ) { $OUTNAME = $SAMPLE_NAME . ".txt" }
@@ -112,7 +114,9 @@ my $command        = "";
 #give file a name
 $random_file_sc = join( "", $random_name, ".sc.sam" );
 $command        = join( "",
-    "samtools view -q $MapQ -F 1024 $INPUT_BAM | awk '{OFS=\"\\t\"}{c=0;if(\$6~/S/){++c};if(c == 1){print}}' | perl -ane '\$TR=(\@F[10]=~tr/\#//);if(\$TR<2){print}' > ",
+    "samtools view -q $MapQ -F 1024 $INPUT_BAM \
+    | awk '{OFS=\"\\t\"}{c=0;if(\$6~/S/){++c};if(c == 1){print}}' \
+    | perl -ane '\$TR=(\@F[10]=~tr/\#//);if(\$TR<2){print}' > ",
     $random_file_sc );
 print "Making SAM file of soft-clipped reads\n";
 if ($verbose) { print "$command\n"; }
@@ -336,7 +340,19 @@ while ( my $l = <FILE> ) {
     my $add = join( ":", @a[ 0 .. 2 ] );
     open( SCRIPT, ">$tmp_script" ) || die "Can't open script file\n";
     print SCRIPT
-        "pos=`echo -e \"$a[0]\\t$a[1]\\t$a[2]\" | closestBed -a $random_file -b stdin -d -t first  | awk '\$NF< $dist_To_Soft &&  \$NF>0' | cut -f2 | sort | uniq -c | awk '{print \$2\"\\t\"\$1}' | sort -n -k2,2nr | head -1 | cut -f1`;\nreads=`echo -e \"$a[0]\\t$a[1]\\t$a[2]\" | closestBed -a $random_file -b stdin -d -t first  | awk '\$NF< $dist_To_Soft &&  \$NF>0' | wc -l`\nif [ \$pos ]; then echo -e \"$a[0]\\t\$pos\\t$l\\t\$reads\"; else pos=\$(echo \"scale=0; ($a[1]+$a[2])/2\" | bc -l); echo -e \"$a[0]\\t\$pos\\t$l\\t\$reads\";fi >>$OUTNAME";
+        "pos=`echo -e \"$a[0]\\t$a[1]\\t$a[2]\" \
+        | closestBed -a $random_file -b stdin -d -t first \
+        | awk '\$NF< $dist_To_Soft &&  \$NF>0' \
+        | cut -f2 \
+        | sort \
+        | uniq -c \
+        | awk '{print \$2\"\\t\"\$1}' \
+        | sort -n -k2,2nr \
+        | head -1 \
+        | cut -f1`;\nreads=`echo -e \"$a[0]\\t$a[1]\\t$a[2]\" \
+        | closestBed -a $random_file -b stdin -d -t first \
+        | awk '\$NF< $dist_To_Soft &&  \$NF>0' \
+        | wc -l`\nif [ \$pos ]; then echo -e \"$a[0]\\t\$pos\\t$l\\t\$reads\"; else pos=\$(echo \"scale=0; ($a[1]+$a[2])/2\" | bc -l); echo -e \"$a[0]\\t\$pos\\t$l\\t\$reads\";fi >>$OUTNAME";
     $command = join( "", "chmod 777 ", $tmp_script );
     if ($verbose) { print "$command\n" }
     system($command);

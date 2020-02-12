@@ -67,7 +67,10 @@ $result_pe = join( "", $Filter_cluster, ".out" );
 $command   = join( "",
     "cat ",
     $Filter_cluster,
-    ".inter.sam | sort -n -k3,3n -k4,4n |perl -ane 'if(\@F[6]!~/=/){print \"HGT\\t\" . join(\"\\t\",\@F[2],\@F[3],\@F[6],\@F[7],\"\\n\")}else{print \"HGT\\t\" , join(\"\\t\",\@F[2],\@F[3],\@F[2],\@F[7],\"\\n\")}' | sort -n -k2,12n -k3,12n >",
+    ".inter.sam \
+    | sort -n -k3,3n -k4,4n \
+    | perl -ane 'if(\@F[6]!~/=/){print \"HGT\\t\" . join(\"\\t\",\@F[2],\@F[3],\@F[6],\@F[7],\"\\n\")}else{print \"HGT\\t\" , join(\"\\t\",\@F[2],\@F[3],\@F[2],\@F[7],\"\\n\")}' \
+    | sort -n -k2,12n -k3,12n >",
     $result_pe );
 if ($verbose) { print $command. "\n" }
 system($command);
@@ -80,7 +83,8 @@ $command = join( "",
     $winsize,
     " |awk '(\$6 >=",
     $minSupport,
-    ")' | awk 'BEGIN {OFS=\"\t\"} {if(\$0 !~ /^chr/){print \$3,\$4,\$1,\$2,\$6} else {print \$1,\$2,\$3,\$4,\$6}}'  | sort -n -k1,1n -k2,2n > ",
+    ")' | awk 'BEGIN {OFS=\"\t\"} {if(\$0 !~ /^chr/){print \$3,\$4,\$1,\$2,\$6} else {print \$1,\$2,\$3,\$4,\$6}}' \
+     | sort -n -k1,1n -k2,2n > ",
     $outfile );
 
 ##awk 'BEGIN {OFS="\t"} {if($0 !~ /^chr/){print $3,$4,$1,$2,$6} else {print $1,$2,$3,$4,$6}}'  | sort -n -k1,1n -k2,2n
