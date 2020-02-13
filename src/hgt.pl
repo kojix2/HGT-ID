@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-########################
+###############################################################################
 ### notes###
 ### 4/22
 #used SM tag to read the sample name from the BAM header
@@ -9,9 +9,9 @@
 ### added the script to garner soft clip reads
 ### it should be more than half of read length
 ### notes###
-############################
+###############################################################################
 
-#### Required bedtools & samtools to be in path
+# Required bedtools & samtools to be in path
 use Getopt::Long;
 use strict;
 use File::Basename;
@@ -22,7 +22,7 @@ use File::Copy;
 use File::Path qw(make_path remove_tree rmtree);
 my ( $BAMFILE, $SAMPLE, $OUTPUT, $CONFIG, $verbose, $debug );
 
-#Declare variables
+# Declare variables
 GetOptions(
     'b=s'      => \$BAMFILE,
     's=s'      => \$SAMPLE,
@@ -44,11 +44,12 @@ sub usage {
     exit 1;
 }
 if ( defined($BAMFILE) ) { $BAMFILE = $BAMFILE }
-else                     { print usage(); die "Where is the BAM file?\n\n" }
+else { print usage(); die "Where is the BAM file?\n\n" }
 if ( defined($CONFIG) ) { $CONFIG = $CONFIG }
 else { print usage(); die "Where is the configuration file?\n\n" }
-##remove it
-#rmtree("$OUTPUT");
+
+# remove it
+# rmtree("$OUTPUT");
 if ( defined($OUTPUT) ) {
     $OUTPUT = $OUTPUT;
     if ( -d "$OUTPUT" || -e "$OUTPUT" ) {
@@ -59,7 +60,7 @@ if ( defined($OUTPUT) ) {
 else { $OUTPUT = getcwd; }
 chdir($OUTPUT) or die "cannot change: $!\n";
 
-### creating the directory structure
+# creating the directory structure
 my $logs     = $OUTPUT . "/.logs";
 my $autocode = $OUTPUT . "/.scripts";
 mkdir $logs;
@@ -74,7 +75,7 @@ mkdir $viral_mapping;
 mkdir $scoring;
 
 #`bwa`;
-### reading the configuration file
+# reading the configuration file
 copy( $CONFIG, "$OUTPUT/config.txt" );
 $CONFIG = "$OUTPUT/config.txt";
 my $config_vars = read_files_var($CONFIG);
@@ -86,7 +87,7 @@ my $PICARD      = $config_vars->{'PICARD'};
 my $FANCYBOX    = $config_vars->{'FANCYBOX'};
 my $RLIB        = $config_vars->{'RLIB'};
 
-### add tools to the path
+# add tools to the path
 $ENV{'PATH'}
     = $SAMTOOLS . ':'
     . $BEDTOOLS . ':'
@@ -94,11 +95,11 @@ $ENV{'PATH'}
     . $PICARD . ':'
     . $ENV{'PATH'};
 
-### get the path to all the scripts
+# get the path to all the scripts
 #`bwa`;
 my $SCRIPT_DIR = $Bin;
 
-### references
+# references
 my $USER_HUMAN_database        = $config_vars->{'USER_HUMAN_database'};
 my $HUMAN_database             = $config_vars->{'HUMAN_database'};
 my $HUMAN_database_Index       = $config_vars->{'HUMAN_database_Index'};
@@ -110,18 +111,19 @@ my $REF_FLAT                   = $config_vars->{'REF_FLAT'};
 my $MINRP                      = $config_vars->{'MINRP'};
 my $MINSOFT                    = $config_vars->{'MINSOFT'};
 
-### parameters
+# parameters
 my $THREADS             = $config_vars->{'THREADS'};
 my $SEQUENCE_COMPLEXITY = $config_vars->{'SEQUENCE_COMPLEXITY'};
 my $DEPTH               = $config_vars->{'DEPTH'};
 
-### make sure the index file is available for the BAM file
+# make sure the index file is available for the BAM file
 my ( $fn, $pathname ) = fileparse( $BAMFILE, ".bam" );
 my $index = `ls $pathname/$fn*bai|head -1`;
 if ( !$index ) {
     die "\n\nERROR: you need to index your BAM file uisng samtools\n\n";
 }
-### get current time
+
+# get current time
 print "Start Time : " . &spGetCurDateTime() . "\n";
 my $now     = time;
 my $command = "";
@@ -151,7 +153,8 @@ print "library size is inferred as : $libsize\n";
 if ( $SAMPLE ne "" ) { $OUTNAME = $OUTPUT . "/" . $SAMPLE . ".txt"; }
 else { $OUTNAME = $OUTNAME = $OUTPUT . "/output.txt"; $SAMPLE = "dummy"; }
 print "Writing results to $OUTNAME\n";
-## to deal with TCGA sample/not mayo samples
+
+# to deal with TCGA sample/not mayo samples
 my $chrflag = `samtools view -H $BAMFILE \
         | grep '^\@SQ' \
         | head -n1 \
@@ -475,11 +478,14 @@ $command = join( "",
     $viral_mapping,
     "/virus.fix.sort.bam" );
 submit($command);
-#########################
-#### completed step3
-############################################################
+
+###############################################################################
+# STEP4 finding the initial candidate list of HGT...
+###############################################################################
+
 print "Step4:\n";
 print "finding the initial candidate list of HGT...\n";
+
 #### create report for virus and human mapping for each HGT candidate
 $command = join( "",
     "perl ",
@@ -552,13 +558,17 @@ $command = join(
     "/chromosomes2keep.txt"
 );
 submit($command);
-#########################
-#### completed step4
-############################################################
+
+###############################################################################
+# STEP5 creating regions to go back to original BAM file to extract reads for to find soft clipping...
+###############################################################################
+
 print "Step5:\n";
-my $region2Capture = $readlength + $libsize;
 print
     "creating regions to go back to original BAM file to extract reads for to find soft clipping...\n";
+
+my $region2Capture = $readlength + $libsize;
+
 $command = join(
     "",
     "bamToBed -i ",
